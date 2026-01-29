@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Orbitron, Rajdhani } from "next/font/google";
+import CustomCursor from "@/components/ui/CustomCursor";
+import SmoothScroll from "@/components/ui/SmoothScroll";
+import Preloader from "@/components/ui/Preloader";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const orbitron = Orbitron({
+  variable: "--font-orbitron",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const rajdhani = Rajdhani({
+  variable: "--font-rajdhani",
+  weight: ["300", "400", "500", "600", "700"],
   subsets: ["latin"],
 });
 
@@ -25,8 +29,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${orbitron.variable} ${rajdhani.variable} antialiased`}
+        suppressHydrationWarning={true}
       >
+        <Preloader />
+        <SmoothScroll />
+        <CustomCursor />
         {children}
       </body>
     </html>
