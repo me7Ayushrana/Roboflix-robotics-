@@ -98,13 +98,21 @@ export default function WatchPage() {
     }
   }, [activeEpisode]);
 
-  // Sync YouTube player time
+  // Sync YouTube player time and duration dynamically
   useEffect(() => {
     if (activeEpisode.id !== "s1e1" || !ytPlayerInstance || !isPlaying) return;
 
     const interval = setInterval(() => {
-      if (ytPlayerInstance && ytPlayerInstance.getCurrentTime) {
-        setCurrentTime(ytPlayerInstance.getCurrentTime());
+      if (ytPlayerInstance) {
+        if (ytPlayerInstance.getCurrentTime) {
+          setCurrentTime(ytPlayerInstance.getCurrentTime());
+        }
+        if (ytPlayerInstance.getDuration) {
+          const d = ytPlayerInstance.getDuration();
+          if (d > 0) {
+            setDuration(d);
+          }
+        }
       }
     }, 500);
 
@@ -226,6 +234,19 @@ export default function WatchPage() {
   const handleQualityChange = (q: string) => {
     setQuality(q);
     setShowQualityDropdown(false);
+    
+    if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+      const qualityMap: { [key: string]: string } = {
+        "Auto": "default",
+        "1080p": "hd1080",
+        "720p": "hd720",
+        "480p": "large",
+        "360p": "medium"
+      };
+      if (ytPlayerInstance.setPlaybackQuality) {
+        ytPlayerInstance.setPlaybackQuality(qualityMap[q] || "default");
+      }
+    }
   };
 
   const toggleMute = () => {
@@ -352,6 +373,44 @@ export default function WatchPage() {
     return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  // Automatically play the new episode if already in playing state
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    setCurrentTime(0);
+    setStreamUrl("");
+
+    if (activeEpisode.id === "s1e1") {
+      setIsLoadingToken(false);
+      return;
+    }
+
+    setIsLoadingToken(true);
+    fetch("/api/video/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ episodeId: activeEpisode.id })
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          if (data.streamUrl) {
+            setStreamUrl(data.streamUrl);
+          } else {
+            setStreamUrl("https://test-streams.mux.dev/x36xhq/x36xhq.m3u8");
+          }
+        } else {
+          setStreamUrl("https://test-streams.mux.dev/x36xhq/x36xhq.m3u8");
+        }
+      })
+      .catch(() => {
+        setStreamUrl("https://test-streams.mux.dev/x36xhq/x36xhq.m3u8");
+      })
+      .finally(() => {
+        setIsLoadingToken(false);
+      });
+  }, [activeEpisode]);
+
   // Load next episode logic
   const handleNextEpisode = () => {
     const currentIndex = activeSeason.episodes.findIndex((e) => e.id === activeEpisode.id);
@@ -359,9 +418,7 @@ export default function WatchPage() {
       // Load next episode in same season
       const nextEp = activeSeason.episodes[currentIndex + 1];
       setActiveEpisode(nextEp);
-      setIsPlaying(false);
-      setStreamUrl("");
-      setCurrentTime(0);
+      setIsPlaying(true);
     } else {
       // Load first episode of next season if available
       const nextSeasonIndex = SEASONS_DATA.findIndex((s) => s.id === activeSeason.id) + 1;
@@ -369,10 +426,7 @@ export default function WatchPage() {
         const nextSeason = SEASONS_DATA[nextSeasonIndex];
         setActiveSeason(nextSeason);
         setActiveEpisode(nextSeason.episodes[0]);
-        setIsPlaying(false);
-        setStreamUrl("");
-        setCurrentTime(0);
-        // Soft navigation change
+        setIsPlaying(true);
         router.push(`/watch/${nextSeason.id}`, { scroll: false });
       }
     }
@@ -382,18 +436,14 @@ export default function WatchPage() {
   const handleSeasonTabClick = (season: Season) => {
     setActiveSeason(season);
     setActiveEpisode(season.episodes[0]);
-    setIsPlaying(false);
-    setStreamUrl("");
-    setCurrentTime(0);
+    setIsPlaying(true);
     router.push(`/watch/${season.id}`, { scroll: false });
   };
 
   // Handle clicking an episode from the list
   const handleEpisodeItemClick = (episode: Episode) => {
     setActiveEpisode(episode);
-    setIsPlaying(false);
-    setStreamUrl("");
-    setCurrentTime(0);
+    setIsPlaying(true);
   };
 
   const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -499,7 +549,7 @@ export default function WatchPage() {
             {isPlaying && !isLoadingToken && (
               <>
                 {/* Progress bar overlay on hover */}
-                <div className="absolute bottom-[44px] left-0 right-0 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                <div className="absolute bottom-[44px] left-0 right-0 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-30">
                   <input
                     type="range"
                     min={0}
@@ -518,7 +568,7 @@ export default function WatchPage() {
                   />
                 </div>
 
-                <div className="h-11 w-full bg-black/90 border-t border-brand-border flex items-center justify-between px-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="h-11 w-full bg-black/90 border-t border-brand-border flex items-center justify-between px-4 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 {/* Left Side: Playback buttons */}
                 <div className="flex items-center gap-4">
                   {/* Seek -10s */}
@@ -562,7 +612,7 @@ export default function WatchPage() {
                       ⚡ {playbackSpeed}x <ChevronDown className="w-3 h-3" />
                     </button>
                     {showSpeedDropdown && (
-                      <div className="absolute bottom-8 right-0 bg-brand-card border border-brand-border rounded p-1 flex flex-col gap-1 w-24 z-20 shadow-2xl">
+                      <div className="absolute bottom-8 right-0 bg-brand-card border border-brand-border rounded p-1 flex flex-col gap-1 w-24 z-40 shadow-2xl">
                         {speeds.map((sp) => (
                           <button
                             key={sp}
@@ -589,7 +639,7 @@ export default function WatchPage() {
                       📺 {quality} <ChevronDown className="w-3 h-3" />
                     </button>
                     {showQualityDropdown && (
-                      <div className="absolute bottom-8 right-0 bg-brand-card border border-brand-border rounded p-1 flex flex-col gap-1 w-24 z-20 shadow-2xl">
+                      <div className="absolute bottom-8 right-0 bg-brand-card border border-brand-border rounded p-1 flex flex-col gap-1 w-24 z-40 shadow-2xl">
                         {qualities.map((q) => (
                           <button
                             key={q}
