@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
-  Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, Maximize, Minimize, 
+  Play, Pause, RotateCcw, RotateCw, Volume1, Volume2, VolumeX, Maximize, Minimize, 
   ChevronRight, Lock, Eye, MonitorPlay, ChevronDown, Check, Settings
 } from "lucide-react";
 import RoboflixNavbar from "@/components/RoboflixNavbar";
@@ -41,6 +41,55 @@ export default function WatchPage() {
   const [showQualityDropdown, setShowQualityDropdown] = useState<boolean>(false);
   const [isLoadingToken, setIsLoadingToken] = useState<boolean>(false);
   const [hasStartedPlaying, setHasStartedPlaying] = useState<boolean>(false);
+
+  // Volume State & Refs
+  const [volume, setVolume] = useState<number>(0.8); // Default 80% volume
+
+  const volumeRef = useRef(volume);
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
+
+  const isMutedRef = useRef(isMuted);
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
+  // Premium Controls Visibility States & Handlers
+  const [showControls, setShowControls] = useState<boolean>(true);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseMove = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    if (isPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    }
+  };
+
+  useEffect(() => {
+    if (!isPlaying) {
+      setShowControls(true);
+    } else {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    }
+    return () => {
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [isPlaying]);
+
+  const shouldShowControls = !isPlaying || isScrubbing || showSpeedDropdown || showQualityDropdown || showControls;
   
   // Bunny Stream/fallback URL
   const [streamUrl, setStreamUrl] = useState<string>("");
@@ -53,8 +102,16 @@ export default function WatchPage() {
       return;
     }
 
+    let retries = 0;
     const initYtPlayer = () => {
-      if (!document.getElementById("youtube-iframe")) return;
+      const iframe = document.getElementById("youtube-iframe");
+      if (!iframe) {
+        if (retries < 30) { // Retry for up to 3 seconds
+          retries++;
+          setTimeout(initYtPlayer, 100);
+        }
+        return;
+      }
       
       try {
         const player = new (window as any).YT.Player("youtube-iframe", {
@@ -62,6 +119,12 @@ export default function WatchPage() {
             onReady: (event: any) => {
               setYtPlayerInstance(event.target);
               setDuration(event.target.getDuration() || 1320); // 22 min fallback
+              if (event.target.setVolume) {
+                event.target.setVolume(volumeRef.current * 100);
+              }
+              if (isMutedRef.current && event.target.mute) {
+                event.target.mute();
+              }
             },
             onStateChange: (event: any) => {
               if (event.data === 1) {
@@ -128,12 +191,134 @@ export default function WatchPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const playerContainerRef = useRef<HTMLDivElement | null>(null);
 
+  // HLS stream and quality state refs
+  const hlsRef = useRef<any>(null);
+  const [isHlsActive, setIsHlsActive] = useState<boolean>(false);
+  const [availableQualities, setAvailableQualities] = useState<string[]>(["Auto", "1080p", "720p", "480p", "360p"]);
+
+  const qualityRef = useRef(quality);
+  useEffect(() => {
+    qualityRef.current = quality;
+  }, [quality]);
+
+  // Load preferred quality preference on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedQuality = localStorage.getItem("preferred-quality");
+      if (savedQuality) {
+        setQuality(savedQuality);
+      }
+    }
+  }, []);
+
+  const applyHlsQuality = (hlsInstance: any, q: string, levelsList?: any[]) => {
+    if (!hlsInstance) return;
+    const levels = levelsList || hlsInstance.levels;
+    if (!levels || levels.length === 0) return;
+
+    if (q === "Auto") {
+      hlsInstance.currentLevel = -1; // -1 enables auto level selection in hls.js
+    } else {
+      const height = parseInt(q);
+      if (isNaN(height)) return;
+
+      let targetIndex = -1;
+      let minDiff = Infinity;
+      levels.forEach((level: any, index: number) => {
+        const diff = Math.abs(level.height - height);
+        if (diff < minDiff) {
+          minDiff = diff;
+          targetIndex = index;
+        }
+      });
+
+      if (targetIndex !== -1) {
+        hlsInstance.currentLevel = targetIndex;
+      }
+    }
+  };
+
+  // Load HLS Stream using hls.js
+  useEffect(() => {
+    if (isYoutubeEpisode || !streamUrl || !videoRef.current) {
+      setIsHlsActive(false);
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      return;
+    }
+
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    import("hls.js").then(({ default: Hls }) => {
+      if (!videoRef.current) return;
+
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          autoStartLoad: true,
+        });
+        hlsRef.current = hls;
+        setIsHlsActive(true);
+
+        hls.loadSource(streamUrl);
+        hls.attachMedia(videoRef.current);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          const levels = hls.levels;
+          const parsedQualities = ["Auto"];
+          levels.forEach((level: any) => {
+            if (level.height) {
+              const qStr = `${level.height}p`;
+              if (!parsedQualities.includes(qStr)) {
+                parsedQualities.push(qStr);
+              }
+            }
+          });
+          // Sort high to low height
+          parsedQualities.sort((a, b) => {
+            if (a === "Auto") return -1;
+            if (b === "Auto") return 1;
+            return parseInt(b) - parseInt(a);
+          });
+          setAvailableQualities(parsedQualities);
+
+          // Apply current quality setting
+          applyHlsQuality(hls, qualityRef.current, levels);
+        });
+
+        if (videoRef.current) {
+          videoRef.current.playbackRate = playbackSpeed;
+          videoRef.current.volume = volumeRef.current;
+          videoRef.current.muted = isMutedRef.current;
+        }
+      } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
+        // Native HLS support fallback
+        setIsHlsActive(false);
+        videoRef.current.src = streamUrl;
+        videoRef.current.volume = volumeRef.current;
+        videoRef.current.muted = isMutedRef.current;
+      }
+    });
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [streamUrl, isYoutubeEpisode]);
+
   // Sync state if initialSeason changes
   useEffect(() => {
     setActiveSeason(initialSeason);
     setActiveEpisode(initialSeason.episodes[0]);
     setIsPlaying(false);
     setStreamUrl("");
+    setAvailableQualities(["Auto", "1080p", "720p", "480p", "360p"]);
   }, [initialSeason]);
 
   // Request signed video stream token on play trigger
@@ -241,6 +426,10 @@ export default function WatchPage() {
     setQuality(q);
     setShowQualityDropdown(false);
     
+    if (typeof window !== "undefined") {
+      localStorage.setItem("preferred-quality", q);
+    }
+    
     if (isYoutubeEpisode && ytPlayerInstance) {
       const qualityMap: { [key: string]: string } = {
         "Auto": "default",
@@ -252,22 +441,74 @@ export default function WatchPage() {
       if (ytPlayerInstance.setPlaybackQuality) {
         ytPlayerInstance.setPlaybackQuality(qualityMap[q] || "default");
       }
+    } else if (hlsRef.current) {
+      applyHlsQuality(hlsRef.current, q);
+    }
+  };
+
+  const adjustVolume = (delta: number) => {
+    setVolume((prev) => {
+      const next = Math.max(0, Math.min(1, prev + delta));
+      
+      if (isYoutubeEpisode && ytPlayerInstance) {
+        if (ytPlayerInstance.setVolume) {
+          ytPlayerInstance.setVolume(next * 100);
+        }
+        if (next > 0 && isMutedRef.current && ytPlayerInstance.unMute) {
+          ytPlayerInstance.unMute();
+          setIsMuted(false);
+        }
+      } else if (videoRef.current) {
+        videoRef.current.volume = next;
+        if (next > 0 && isMutedRef.current) {
+          videoRef.current.muted = false;
+          setIsMuted(false);
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleVolumeChange = (v: number) => {
+    const clamped = Math.max(0, Math.min(1, v));
+    setVolume(clamped);
+    if (clamped > 0 && isMuted) {
+      setIsMuted(false);
+    }
+    
+    if (isYoutubeEpisode && ytPlayerInstance) {
+      if (ytPlayerInstance.setVolume) {
+        ytPlayerInstance.setVolume(clamped * 100);
+      }
+      if (clamped > 0 && ytPlayerInstance.unMute) {
+        ytPlayerInstance.unMute();
+      }
+    } else if (videoRef.current) {
+      videoRef.current.volume = clamped;
+      videoRef.current.muted = clamped === 0;
     }
   };
 
   const toggleMute = () => {
+    const nextMute = !isMuted;
+    setIsMuted(nextMute);
+    
     if (isYoutubeEpisode && ytPlayerInstance) {
-      if (isMuted) {
-        ytPlayerInstance.unMute();
+      if (nextMute) {
+        if (ytPlayerInstance.mute) ytPlayerInstance.mute();
       } else {
-        ytPlayerInstance.mute();
+        if (ytPlayerInstance.unMute) ytPlayerInstance.unMute();
+        if (ytPlayerInstance.setVolume) {
+          ytPlayerInstance.setVolume(volume * 100);
+        }
       }
-      setIsMuted(!isMuted);
       return;
     }
     if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
+      videoRef.current.muted = nextMute;
+      if (!nextMute) {
+        videoRef.current.volume = volume;
+      }
     }
   };
 
@@ -333,6 +574,14 @@ export default function WatchPage() {
           e.preventDefault();
           seekForward();
           break;
+        case "ArrowUp":
+          e.preventDefault();
+          adjustVolume(0.05); // Increase volume by 5%
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          adjustVolume(-0.05); // Decrease volume by 5%
+          break;
         case "KeyF":
           e.preventDefault();
           toggleFullscreen();
@@ -350,12 +599,17 @@ export default function WatchPage() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isPlaying, isMuted, duration]);
+  }, [isPlaying, isMuted, duration, volume, ytPlayerInstance]);
 
   // Video Time/Duration Updates
   const handleTimeUpdate = () => {
-    if (videoRef.current && !isScrubbing) {
-      setCurrentTime(videoRef.current.currentTime);
+    if (videoRef.current) {
+      if (!isScrubbing) {
+        setCurrentTime(videoRef.current.currentTime);
+      }
+      if (videoRef.current.duration && videoRef.current.duration !== duration) {
+        setDuration(videoRef.current.duration);
+      }
     }
   };
 
@@ -457,7 +711,6 @@ export default function WatchPage() {
   };
 
   const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
-  const qualities = ["Auto", "1080p", "720p", "480p", "360p"];
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] bg-premium-grid bg-radial-glow text-white flex flex-col font-inter relative overflow-hidden">
@@ -491,6 +744,8 @@ export default function WatchPage() {
           {/* Video Player Container */}
           <div 
             ref={playerContainerRef}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => isPlaying && setShowControls(false)}
             className="relative w-full aspect-[16/9] bg-black border border-brand-border rounded-lg overflow-hidden group select-none flex flex-col justify-end"
           >
             {/* 1. Persistent Video Player Frame */}
@@ -522,7 +777,7 @@ export default function WatchPage() {
                 ) : (
                   <video
                     ref={videoRef}
-                    src={streamUrl}
+                    src={!isHlsActive ? streamUrl : undefined}
                     className="w-full h-full object-contain"
                     autoPlay
                     onTimeUpdate={handleTimeUpdate}
@@ -567,7 +822,9 @@ export default function WatchPage() {
             {hasStartedPlaying && !isLoadingToken && (
               <>
                 {/* Progress bar overlay on hover */}
-                <div className="absolute bottom-[44px] left-0 right-0 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-30">
+                <div className={`absolute bottom-[44px] left-0 right-0 px-4 transition-opacity duration-300 z-30 ${
+                  shouldShowControls ? "opacity-100" : "opacity-0 pointer-events-none"
+                }`}>
                   <input
                     type="range"
                     min={0}
@@ -603,11 +860,13 @@ export default function WatchPage() {
                         duration > 0 ? (currentTime / duration) * 100 : 0
                       }%, #4b5563 100%)`
                     }}
-                    className="w-full accent-brand-red h-1.5 rounded cursor-pointer outline-none transition-all duration-150"
+                    className="w-full timeline-slider h-1.5 cursor-pointer rounded transition-all duration-150"
                   />
                 </div>
 
-                <div className="h-11 w-full bg-black/90 border-t border-brand-border flex items-center justify-between px-4 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className={`h-11 w-full bg-black/90 border-t border-brand-border flex items-center justify-between px-4 z-30 transition-opacity duration-300 ${
+                  shouldShowControls ? "opacity-100" : "opacity-0 pointer-events-none"
+                }`}>
                 {/* Left Side: Playback buttons */}
                 <div className="flex items-center gap-4">
                   {/* Seek -10s */}
@@ -626,9 +885,34 @@ export default function WatchPage() {
                   </button>
 
                   {/* Volume Control */}
-                  <button onClick={toggleMute} className="text-gray-400 hover:text-white transition-colors focus:outline-none cursor-pointer">
-                    {isMuted ? <VolumeX className="w-4 h-4 text-brand-red" /> : <Volume2 className="w-4 h-4" />}
-                  </button>
+                  <div className="flex items-center gap-1.5 group/volume">
+                    <button onClick={toggleMute} className="text-gray-400 hover:text-white transition-colors focus:outline-none cursor-pointer" title="Mute/Unmute">
+                      {isMuted || volume === 0 ? (
+                        <VolumeX className="w-4 h-4 text-brand-red" />
+                      ) : volume < 0.5 ? (
+                        <Volume1 className="w-4 h-4" />
+                      ) : (
+                        <Volume2 className="w-4 h-4" />
+                      )}
+                    </button>
+                    {/* Volume Bar Slider */}
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={isMuted ? 0 : volume}
+                      onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                      style={{
+                        background: `linear-gradient(to right, #E50914 0%, #E50914 ${
+                          (isMuted ? 0 : volume) * 100
+                        }%, #4b5563 ${
+                          (isMuted ? 0 : volume) * 100
+                        }%, #4b5563 100%)`
+                      }}
+                      className="w-16 h-1 cursor-pointer rounded accent-brand-red outline-none transition-all duration-150 volume-slider"
+                    />
+                  </div>
 
                   {/* Duration tracker */}
                   <div className="font-mono text-[10px] text-gray-500">
@@ -679,7 +963,7 @@ export default function WatchPage() {
                     </button>
                     {showQualityDropdown && (
                       <div className="absolute bottom-8 right-0 bg-brand-card border border-brand-border rounded p-1 flex flex-col gap-1 w-24 z-40 shadow-2xl">
-                        {qualities.map((q) => (
+                        {availableQualities.map((q) => (
                           <button
                             key={q}
                             onClick={() => handleQualityChange(q)}
