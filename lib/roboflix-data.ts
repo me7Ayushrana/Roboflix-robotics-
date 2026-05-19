@@ -71,7 +71,7 @@ export const SEASONS_DATA: Season[] = [
         title: "Your First Brain",
         duration: "35 min",
         durationMin: 35,
-        isFree: false,
+        isFree: true,
         thumbnailEmoji: "🧠",
         description: "Introduction to Arduino and ESP32 architectures. Learn to install the IDE, configure drivers, flash firmware, and control your first GPIO outputs to control LED matrices.",
         publishDate: "Oct 2025",

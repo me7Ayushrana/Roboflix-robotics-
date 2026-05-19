@@ -25,6 +25,9 @@ export default function WatchPage() {
   // States
   const [activeSeason, setActiveSeason] = useState<Season>(initialSeason);
   const [activeEpisode, setActiveEpisode] = useState<Episode>(initialSeason.episodes[0]);
+
+  const isYoutubeEpisode = activeEpisode.id === "s1e1" || activeEpisode.id === "s1e2";
+
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [quality, setQuality] = useState<string>("Auto");
@@ -44,7 +47,7 @@ export default function WatchPage() {
 
   // Load YouTube Player API and initialize
   useEffect(() => {
-    if (activeEpisode.id !== "s1e1" || !hasStartedPlaying) {
+    if (!isYoutubeEpisode || !hasStartedPlaying) {
       setYtPlayerInstance(null);
       return;
     }
@@ -101,7 +104,7 @@ export default function WatchPage() {
 
   // Sync YouTube player time and duration dynamically
   useEffect(() => {
-    if (activeEpisode.id !== "s1e1" || !ytPlayerInstance || !isPlaying) return;
+    if (!isYoutubeEpisode || !ytPlayerInstance || !isPlaying) return;
 
     const interval = setInterval(() => {
       if (ytPlayerInstance) {
@@ -137,7 +140,7 @@ export default function WatchPage() {
     setIsPlaying(true);
     setHasStartedPlaying(true);
 
-    if (activeEpisode.id === "s1e1") {
+    if (isYoutubeEpisode) {
       setIsLoadingToken(false);
       return;
     }
@@ -172,7 +175,7 @@ export default function WatchPage() {
 
   // HTML5/HLS Player Actions
   const togglePlayPause = () => {
-    if (activeEpisode.id === "s1e1") {
+    if (isYoutubeEpisode) {
       if (ytPlayerInstance) {
         if (isPlaying) {
           ytPlayerInstance.pauseVideo();
@@ -200,7 +203,7 @@ export default function WatchPage() {
   };
 
   const seekBackward = () => {
-    if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+    if (isYoutubeEpisode && ytPlayerInstance) {
       const newTime = Math.max(0, ytPlayerInstance.getCurrentTime() - 10);
       ytPlayerInstance.seekTo(newTime, true);
       setCurrentTime(newTime);
@@ -212,7 +215,7 @@ export default function WatchPage() {
   };
 
   const seekForward = () => {
-    if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+    if (isYoutubeEpisode && ytPlayerInstance) {
       const newTime = Math.min(duration, ytPlayerInstance.getCurrentTime() + 10);
       ytPlayerInstance.seekTo(newTime, true);
       setCurrentTime(newTime);
@@ -225,7 +228,7 @@ export default function WatchPage() {
 
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
-    if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+    if (isYoutubeEpisode && ytPlayerInstance) {
       ytPlayerInstance.setPlaybackRate(speed);
     } else if (videoRef.current) {
       videoRef.current.playbackRate = speed;
@@ -237,7 +240,7 @@ export default function WatchPage() {
     setQuality(q);
     setShowQualityDropdown(false);
     
-    if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+    if (isYoutubeEpisode && ytPlayerInstance) {
       const qualityMap: { [key: string]: string } = {
         "Auto": "default",
         "1080p": "hd1080",
@@ -252,7 +255,7 @@ export default function WatchPage() {
   };
 
   const toggleMute = () => {
-    if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+    if (isYoutubeEpisode && ytPlayerInstance) {
       if (isMuted) {
         ytPlayerInstance.unMute();
       } else {
@@ -382,7 +385,7 @@ export default function WatchPage() {
     setCurrentTime(0);
     setStreamUrl("");
 
-    if (activeEpisode.id === "s1e1") {
+    if (isYoutubeEpisode) {
       setIsLoadingToken(false);
       return;
     }
@@ -492,13 +495,17 @@ export default function WatchPage() {
             {/* 1. Persistent Video Player Frame */}
             {hasStartedPlaying && (
               <div className="absolute inset-0 w-full h-full bg-black flex flex-col justify-between">
-                {activeEpisode.id === "s1e1" ? (
+                {isYoutubeEpisode ? (
                   <div className="relative w-full h-full overflow-hidden">
                     {/* The cropped iframe shifted to crop YouTube title and controls */}
                     <div className="absolute inset-0 w-full h-[calc(100%+120px)] -top-[60px] pointer-events-none">
                       <iframe
                         id="youtube-iframe"
-                        src="https://www.youtube.com/embed/RuDsBrSczis?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
+                        src={
+                          activeEpisode.id === "s1e1"
+                            ? "https://www.youtube.com/embed/RuDsBrSczis?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
+                            : "https://www.youtube.com/embed/T5rmd-vKQeM?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
+                        }
                         title={activeEpisode.title}
                         className="w-full h-full border-0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
@@ -568,7 +575,7 @@ export default function WatchPage() {
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
                       setCurrentTime(val);
-                      if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+                      if (isYoutubeEpisode && ytPlayerInstance) {
                         ytPlayerInstance.seekTo(val, true);
                       } else if (videoRef.current) {
                         videoRef.current.currentTime = val;
@@ -665,7 +672,7 @@ export default function WatchPage() {
                   </div>
 
                   {/* PiP */}
-                  {activeEpisode.id !== "s1e1" && (
+                  {!isYoutubeEpisode && (
                     <button onClick={togglePiP} className="text-gray-400 hover:text-white transition-colors focus:outline-none cursor-pointer" title="Picture in Picture">
                       <span className="font-mono text-[10px] font-bold">⧉</span>
                     </button>
