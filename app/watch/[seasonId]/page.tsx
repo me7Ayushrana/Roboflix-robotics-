@@ -512,40 +512,22 @@ export default function WatchPage() {
               // Active Playing Video State
               <div className="absolute inset-0 w-full h-full bg-black flex flex-col justify-between">
                 {activeEpisode.id === "s1e1" ? (
-                  <div className="relative w-full h-full bg-black">
-                    <iframe
-                      id="youtube-iframe"
-                      src="https://www.youtube.com/embed/RuDsBrSczis?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=1&showinfo=0&iv_load_policy=3"
-                      title={activeEpisode.title}
-                      className="w-full h-full border-0 absolute inset-0 z-10"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
-                      allowFullScreen
-                    />
+                  <div className="relative w-full h-full overflow-hidden">
+                    {/* The cropped iframe shifted to crop YouTube title and controls */}
+                    <div className="absolute inset-0 w-full h-[calc(100%+120px)] -top-[60px] pointer-events-none">
+                      <iframe
+                        id="youtube-iframe"
+                        src="https://www.youtube.com/embed/RuDsBrSczis?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
+                        title={activeEpisode.title}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+                      />
+                    </div>
                     
-                    {/* Block bottom-right corner (YouTube Logo / Watch on YouTube Link / More Videos popups) */}
+                    {/* Click-to-toggle overlay over the entire player */}
                     <div 
-                      className="absolute bottom-0 right-0 w-[180px] h-[55px] z-20 cursor-default bg-transparent"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
-                    />
-
-                    {/* Block top bar (Title / Share Link / Channel Avatar) */}
-                    <div 
-                      className="absolute top-0 left-0 w-full h-[65px] z-20 cursor-default bg-transparent"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
+                      className="absolute inset-0 z-20 cursor-pointer"
+                      onClick={togglePlayPause}
                     />
                   </div>
                 ) : (
@@ -564,7 +546,7 @@ export default function WatchPage() {
             )}
 
             {/* Custom Control Bar (Below / Overlaid at bottom on hover) */}
-            {isPlaying && !isLoadingToken && activeEpisode.id !== "s1e1" && (
+            {isPlaying && !isLoadingToken && (
               <>
                 {/* Progress bar overlay on hover */}
                 <div className="absolute bottom-[44px] left-0 right-0 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-30">
@@ -576,7 +558,11 @@ export default function WatchPage() {
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
                       setCurrentTime(val);
-                      if (videoRef.current) videoRef.current.currentTime = val;
+                      if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+                        ytPlayerInstance.seekTo(val, true);
+                      } else if (videoRef.current) {
+                        videoRef.current.currentTime = val;
+                      }
                     }}
                     className="w-full accent-brand-red h-1 rounded bg-gray-800 cursor-pointer"
                   />
