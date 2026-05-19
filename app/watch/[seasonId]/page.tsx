@@ -168,24 +168,25 @@ export default function WatchPage() {
 
   // Sync YouTube player time and duration dynamically
   useEffect(() => {
-    if (!isYoutubeEpisode || !ytPlayerInstance || !isPlaying || isScrubbing) return;
+    if (!isYoutubeEpisode || !ytPlayerInstance) return;
 
     const interval = setInterval(() => {
       if (ytPlayerInstance && !isScrubbing) {
         if (ytPlayerInstance.getCurrentTime) {
-          setCurrentTime(ytPlayerInstance.getCurrentTime());
+          const t = ytPlayerInstance.getCurrentTime();
+          setCurrentTime(t);
         }
         if (ytPlayerInstance.getDuration) {
           const d = ytPlayerInstance.getDuration();
-          if (d > 0) {
+          if (d > 0 && d !== duration) {
             setDuration(d);
           }
         }
       }
-    }, 500);
+    }, 250);
 
     return () => clearInterval(interval);
-  }, [ytPlayerInstance, isPlaying, activeEpisode, isScrubbing]);
+  }, [ytPlayerInstance, isYoutubeEpisode, isScrubbing, duration]);
 
   // Refs for custom video tag and container
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -846,6 +847,7 @@ export default function WatchPage() {
                       const val = parseFloat((e.target as HTMLInputElement).value);
                       if (isYoutubeEpisode && ytPlayerInstance) {
                         ytPlayerInstance.seekTo(val, true);
+                        setCurrentTime(val);
                       } else if (videoRef.current) {
                         videoRef.current.currentTime = val;
                       }
@@ -855,6 +857,7 @@ export default function WatchPage() {
                       const val = parseFloat((e.target as HTMLInputElement).value);
                       if (isYoutubeEpisode && ytPlayerInstance) {
                         ytPlayerInstance.seekTo(val, true);
+                        setCurrentTime(val);
                       } else if (videoRef.current) {
                         videoRef.current.currentTime = val;
                       }
