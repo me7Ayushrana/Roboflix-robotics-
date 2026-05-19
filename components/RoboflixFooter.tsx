@@ -21,7 +21,7 @@ export default function RoboflixFooter() {
         { name: "About Roboflix", href: "/#about" },
         { name: "Robotics Blog", href: "/#blog" },
         { name: "Community Discord", href: "https://discord.gg/roboflix" },
-        { name: "Contact Us", href: "mailto:info@xair.live" }
+        { name: "Contact Us", href: "mailto:info@roboflix.com" }
       ]
     },
     {
