@@ -9,17 +9,14 @@ export default function RoboflixFooter() {
     {
       title: "Platform",
       links: [
-        { name: "All Seasons", href: "/#seasons" },
-        { name: "Pricing", href: "/#pricing" },
-        { name: "Success Stories", href: "/#community" },
-        { name: "Documentation", href: "/browse" }
+        { name: "All Seasons", href: "/" },
+        { name: "Browse Series", href: "/" },
+        { name: "Premium Catalog", href: "/" }
       ]
     },
     {
       title: "Community",
       links: [
-        { name: "About Roboflix", href: "/#about" },
-        { name: "Robotics Blog", href: "/#blog" },
         { name: "Community Discord", href: "https://discord.gg/roboflix" },
         { name: "Contact Us", href: "mailto:info@roboflix.com" }
       ]

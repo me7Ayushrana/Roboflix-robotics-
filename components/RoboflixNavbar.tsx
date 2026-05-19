@@ -13,10 +13,10 @@ export default function RoboflixNavbar({ activeSection }: RoboflixNavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
-    { name: "Seasons", href: "/#seasons" },
-    { name: "How It Works", href: "/#how-it-works" },
-    { name: "Projects", href: "/#projects" },
-    { name: "Pricing", href: "/#pricing" }
+    { name: "Browse Series", href: "/" },
+    { name: "Season 1", href: "/watch/s1" },
+    { name: "Season 2", href: "/watch/s2" },
+    { name: "Season 3", href: "/watch/s3" }
   ];
 
   return (

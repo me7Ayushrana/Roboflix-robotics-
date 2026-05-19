@@ -31,8 +31,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "XAIR",
-  description: "Pioneering autonomous systems and neural architecture.",
+  title: "ROBOFLIX",
+  description: "Learn robotics Netflix-style. Dive into our curriculum from ground zero basics up to autonomous navigation and multi-joint robotic limbs.",
 };
 
 export default function RootLayout({
