@@ -765,8 +765,8 @@ export default function WatchPage() {
                         id="youtube-iframe"
                         src={
                           activeEpisode.id === "s1e1"
-                            ? "https://www.youtube.com/embed/RuDsBrSczis?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
-                            : "https://www.youtube.com/embed/T5rmd-vKQeM?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
+                            ? "https://www.youtube-nocookie.com/embed/RuDsBrSczis?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
+                            : "https://www.youtube-nocookie.com/embed/T5rmd-vKQeM?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
                         }
                         title={activeEpisode.title}
                         className="w-full h-full border-0"
