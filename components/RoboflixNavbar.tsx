@@ -13,10 +13,7 @@ export default function RoboflixNavbar({ activeSection }: RoboflixNavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
-    { name: "Browse Series", href: "/" },
-    { name: "Season 1", href: "/watch/s1" },
-    { name: "Season 2", href: "/watch/s2" },
-    { name: "Season 3", href: "/watch/s3" }
+    { name: "Browse Series", href: "/" }
   ];
 
   return (
@@ -46,9 +43,6 @@ export default function RoboflixNavbar({ activeSection }: RoboflixNavbarProps) {
 
       {/* Right Action Button */}
       <div className="hidden md:flex items-center gap-4">
-        <Link href="/browse" className="font-inter text-sm font-semibold text-gray-300 hover:text-white mr-2 transition-colors">
-          Browse
-        </Link>
         <a
           href="https://rzp.io/rzp/roboflix"
           target="_blank"
@@ -81,14 +75,6 @@ export default function RoboflixNavbar({ activeSection }: RoboflixNavbarProps) {
                 {item.name}
               </Link>
             ))}
-            <div className="h-px bg-brand-border my-2" />
-            <Link
-              href="/browse"
-              onClick={() => setIsOpen(false)}
-              className="font-inter text-base font-semibold text-gray-300 hover:text-brand-red transition-colors"
-            >
-              Browse Series
-            </Link>
             <a
               href="https://rzp.io/rzp/roboflix"
               target="_blank"

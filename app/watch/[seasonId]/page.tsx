@@ -55,6 +55,12 @@ export default function WatchPage() {
   // Request signed video stream token on play trigger
   const handlePlayStart = async () => {
     setIsPlaying(true);
+
+    if (activeEpisode.id === "s1e1") {
+      setIsLoadingToken(false);
+      return;
+    }
+
     setIsLoadingToken(true);
 
     try {
@@ -348,37 +354,49 @@ export default function WatchPage() {
             ) : (
               // Active Playing Video State
               <div className="absolute inset-0 w-full h-full bg-black flex flex-col justify-between">
-                <video
-                  ref={videoRef}
-                  src={streamUrl}
-                  className="w-full h-full object-contain"
-                  autoPlay
-                  onTimeUpdate={handleTimeUpdate}
-                  onLoadedMetadata={handleLoadedMetadata}
-                  onEnded={handleVideoEnded}
-                  onClick={togglePlayPause}
-                />
-
-                {/* Progress bar overlay on hover */}
-                <div className="absolute bottom-[44px] left-0 right-0 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <input
-                    type="range"
-                    min={0}
-                    max={duration || 100}
-                    value={currentTime}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value);
-                      setCurrentTime(val);
-                      if (videoRef.current) videoRef.current.currentTime = val;
-                    }}
-                    className="w-full accent-brand-red h-1 rounded bg-gray-800 cursor-pointer"
+                {activeEpisode.id === "s1e1" ? (
+                  <iframe
+                    src="https://www.youtube.com/embed/RuDsBrSczis?autoplay=1&modestbranding=1&rel=0&controls=1"
+                    title={activeEpisode.title}
+                    className="w-full h-full border-0 absolute inset-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
                   />
-                </div>
+                ) : (
+                  <>
+                    <video
+                      ref={videoRef}
+                      src={streamUrl}
+                      className="w-full h-full object-contain"
+                      autoPlay
+                      onTimeUpdate={handleTimeUpdate}
+                      onLoadedMetadata={handleLoadedMetadata}
+                      onEnded={handleVideoEnded}
+                      onClick={togglePlayPause}
+                    />
+
+                    {/* Progress bar overlay on hover */}
+                    <div className="absolute bottom-[44px] left-0 right-0 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <input
+                        type="range"
+                        min={0}
+                        max={duration || 100}
+                        value={currentTime}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setCurrentTime(val);
+                          if (videoRef.current) videoRef.current.currentTime = val;
+                        }}
+                        className="w-full accent-brand-red h-1 rounded bg-gray-800 cursor-pointer"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
             {/* Custom Control Bar (Below / Overlaid at bottom on hover) */}
-            {isPlaying && !isLoadingToken && (
+            {isPlaying && !isLoadingToken && activeEpisode.id !== "s1e1" && (
               <div className="h-11 w-full bg-black/90 border-t border-brand-border flex items-center justify-between px-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 {/* Left Side: Playback buttons */}
                 <div className="flex items-center gap-4">
