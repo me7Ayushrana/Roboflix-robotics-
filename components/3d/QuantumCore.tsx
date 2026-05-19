@@ -104,6 +104,7 @@ export default function QuantumCore() {
                             count={particleCount}
                             array={positions}
                             itemSize={3}
+                            args={[positions, 3]}
                         />
                     </bufferGeometry>
                     <pointsMaterial
