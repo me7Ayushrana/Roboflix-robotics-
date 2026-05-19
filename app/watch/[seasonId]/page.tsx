@@ -91,19 +91,41 @@ export default function WatchPage() {
 
   const shouldShowControls = !isPlaying || isScrubbing || showSpeedDropdown || showQualityDropdown || showControls;
   
-  // Bunny Stream/fallback URL
   const [streamUrl, setStreamUrl] = useState<string>("");
   const [ytPlayerInstance, setYtPlayerInstance] = useState<any>(null);
+  const ytPlayerRef = useRef<any>(null);
 
   // Load YouTube Player API and initialize
   useEffect(() => {
     if (!isYoutubeEpisode || !hasStartedPlaying) {
+      if (ytPlayerRef.current) {
+        try {
+          if (ytPlayerRef.current.destroy) {
+            ytPlayerRef.current.destroy();
+          }
+        } catch (e) {
+          console.warn("Error destroying YT player:", e);
+        }
+        ytPlayerRef.current = null;
+      }
       setYtPlayerInstance(null);
       return;
     }
 
     let retries = 0;
     const initYtPlayer = () => {
+      // Clean up previous instance before re-constructing to avoid duplicate bindings
+      if (ytPlayerRef.current) {
+        try {
+          if (ytPlayerRef.current.destroy) {
+            ytPlayerRef.current.destroy();
+          }
+        } catch (e) {
+          console.warn("Error destroying YT player in init:", e);
+        }
+        ytPlayerRef.current = null;
+      }
+
       const iframe = document.getElementById("youtube-iframe");
       if (!iframe) {
         if (retries < 30) { // Retry for up to 3 seconds
@@ -118,6 +140,7 @@ export default function WatchPage() {
           events: {
             onReady: (event: any) => {
               setYtPlayerInstance(event.target);
+              ytPlayerRef.current = event.target;
               setDuration(event.target.getDuration() || 1320); // 22 min fallback
               if (event.target.setVolume) {
                 event.target.setVolume(volumeRef.current * 100);
@@ -138,6 +161,7 @@ export default function WatchPage() {
             }
           }
         });
+        ytPlayerRef.current = player;
       } catch (err) {
         console.error("YT Player init error:", err);
       }
@@ -164,6 +188,19 @@ export default function WatchPage() {
         }, 100);
       }
     }
+
+    return () => {
+      if (ytPlayerRef.current) {
+        try {
+          if (ytPlayerRef.current.destroy) {
+            ytPlayerRef.current.destroy();
+          }
+        } catch (e) {
+          console.warn("Error destroying YT player in cleanup:", e);
+        }
+        ytPlayerRef.current = null;
+      }
+    };
   }, [activeEpisode, hasStartedPlaying]);
 
   // Sync YouTube player time and duration dynamically
