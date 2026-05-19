@@ -355,13 +355,41 @@ export default function WatchPage() {
               // Active Playing Video State
               <div className="absolute inset-0 w-full h-full bg-black flex flex-col justify-between">
                 {activeEpisode.id === "s1e1" ? (
-                  <iframe
-                    src="https://www.youtube.com/embed/RuDsBrSczis?autoplay=1&modestbranding=1&rel=0&controls=1"
-                    title={activeEpisode.title}
-                    className="w-full h-full border-0 absolute inset-0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
+                  <div className="relative w-full h-full">
+                    <iframe
+                      src="https://www.youtube.com/embed/RuDsBrSczis?autoplay=1&modestbranding=1&rel=0&controls=1&showinfo=0&iv_load_policy=3"
+                      title={activeEpisode.title}
+                      className="w-full h-full border-0 absolute inset-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                    
+                    {/* Block bottom-right corner (YouTube Logo / Watch on YouTube Link) */}
+                    <div 
+                      className="absolute bottom-0 right-0 w-[180px] h-[60px] z-20 cursor-default bg-transparent"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                    />
+
+                    {/* Block top bar (Title / Share Link) */}
+                    <div 
+                      className="absolute top-0 left-0 w-full h-[65px] z-20 cursor-default bg-transparent"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                    />
+                  </div>
                 ) : (
                   <>
                     <video
