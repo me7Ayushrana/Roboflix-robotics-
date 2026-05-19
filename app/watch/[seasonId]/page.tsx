@@ -39,6 +39,77 @@ export default function WatchPage() {
   
   // Bunny Stream/fallback URL
   const [streamUrl, setStreamUrl] = useState<string>("");
+  const [ytPlayerInstance, setYtPlayerInstance] = useState<any>(null);
+
+  // Load YouTube Player API and initialize
+  useEffect(() => {
+    if (activeEpisode.id !== "s1e1") {
+      setYtPlayerInstance(null);
+      return;
+    }
+
+    const initYtPlayer = () => {
+      if (!document.getElementById("youtube-iframe")) return;
+      
+      try {
+        const player = new (window as any).YT.Player("youtube-iframe", {
+          events: {
+            onReady: (event: any) => {
+              setYtPlayerInstance(event.target);
+              setDuration(event.target.getDuration() || 1320); // 22 min fallback
+            },
+            onStateChange: (event: any) => {
+              if (event.data === 1) {
+                setIsPlaying(true);
+              } else if (event.data === 2) {
+                setIsPlaying(false);
+              } else if (event.data === 0) {
+                setIsPlaying(false);
+                handleNextEpisode();
+              }
+            }
+          }
+        });
+      } catch (err) {
+        console.error("YT Player init error:", err);
+      }
+    };
+
+    if (!(window as any).YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      
+      (window as any).onYouTubeIframeAPIReady = () => {
+        initYtPlayer();
+      };
+    } else {
+      if ((window as any).YT.Player) {
+        initYtPlayer();
+      } else {
+        const checkReady = setInterval(() => {
+          if ((window as any).YT && (window as any).YT.Player) {
+            clearInterval(checkReady);
+            initYtPlayer();
+          }
+        }, 100);
+      }
+    }
+  }, [activeEpisode]);
+
+  // Sync YouTube player time
+  useEffect(() => {
+    if (activeEpisode.id !== "s1e1" || !ytPlayerInstance || !isPlaying) return;
+
+    const interval = setInterval(() => {
+      if (ytPlayerInstance && ytPlayerInstance.getCurrentTime) {
+        setCurrentTime(ytPlayerInstance.getCurrentTime());
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [ytPlayerInstance, isPlaying, activeEpisode]);
 
   // Refs for custom video tag and container
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -91,6 +162,20 @@ export default function WatchPage() {
 
   // HTML5/HLS Player Actions
   const togglePlayPause = () => {
+    if (activeEpisode.id === "s1e1") {
+      if (ytPlayerInstance) {
+        if (isPlaying) {
+          ytPlayerInstance.pauseVideo();
+          setIsPlaying(false);
+        } else {
+          ytPlayerInstance.playVideo();
+          setIsPlaying(true);
+        }
+      } else {
+        setIsPlaying(true);
+      }
+      return;
+    }
     if (!isPlaying) {
       handlePlayStart();
     } else {
@@ -105,12 +190,24 @@ export default function WatchPage() {
   };
 
   const seekBackward = () => {
+    if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+      const newTime = Math.max(0, ytPlayerInstance.getCurrentTime() - 10);
+      ytPlayerInstance.seekTo(newTime, true);
+      setCurrentTime(newTime);
+      return;
+    }
     if (videoRef.current) {
       videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
     }
   };
 
   const seekForward = () => {
+    if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+      const newTime = Math.min(duration, ytPlayerInstance.getCurrentTime() + 10);
+      ytPlayerInstance.seekTo(newTime, true);
+      setCurrentTime(newTime);
+      return;
+    }
     if (videoRef.current) {
       videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 10);
     }
@@ -118,7 +215,9 @@ export default function WatchPage() {
 
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
-    if (videoRef.current) {
+    if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+      ytPlayerInstance.setPlaybackRate(speed);
+    } else if (videoRef.current) {
       videoRef.current.playbackRate = speed;
     }
     setShowSpeedDropdown(false);
@@ -127,10 +226,18 @@ export default function WatchPage() {
   const handleQualityChange = (q: string) => {
     setQuality(q);
     setShowQualityDropdown(false);
-    // Note: Quality switching is abstracted by HLS.js, we simulate state here
   };
 
   const toggleMute = () => {
+    if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+      if (isMuted) {
+        ytPlayerInstance.unMute();
+      } else {
+        ytPlayerInstance.mute();
+      }
+      setIsMuted(!isMuted);
+      return;
+    }
     if (videoRef.current) {
       videoRef.current.muted = !isMuted;
       setIsMuted(!isMuted);
@@ -355,77 +462,63 @@ export default function WatchPage() {
               // Active Playing Video State
               <div className="absolute inset-0 w-full h-full bg-black flex flex-col justify-between">
                 {activeEpisode.id === "s1e1" ? (
-                  <div className="relative w-full h-full">
-                    <iframe
-                      src="https://www.youtube.com/embed/RuDsBrSczis?autoplay=1&modestbranding=1&rel=0&controls=1&showinfo=0&iv_load_policy=3"
-                      title={activeEpisode.title}
-                      className="w-full h-full border-0 absolute inset-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
+                  <div className="relative w-full h-full overflow-hidden">
+                    {/* The cropped iframe shifted to crop YouTube title and controls */}
+                    <div className="absolute inset-0 w-full h-[calc(100%+120px)] -top-[60px] pointer-events-none">
+                      <iframe
+                        id="youtube-iframe"
+                        src="https://www.youtube.com/embed/RuDsBrSczis?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
+                        title={activeEpisode.title}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+                      />
+                    </div>
                     
-                    {/* Block bottom-right corner (YouTube Logo / Watch on YouTube Link) */}
+                    {/* Click-to-toggle overlay over the entire player */}
                     <div 
-                      className="absolute bottom-0 right-0 w-[180px] h-[60px] z-20 cursor-default bg-transparent"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
-                    />
-
-                    {/* Block top bar (Title / Share Link) */}
-                    <div 
-                      className="absolute top-0 left-0 w-full h-[65px] z-20 cursor-default bg-transparent"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
+                      className="absolute inset-0 z-20 cursor-pointer"
+                      onClick={togglePlayPause}
                     />
                   </div>
                 ) : (
-                  <>
-                    <video
-                      ref={videoRef}
-                      src={streamUrl}
-                      className="w-full h-full object-contain"
-                      autoPlay
-                      onTimeUpdate={handleTimeUpdate}
-                      onLoadedMetadata={handleLoadedMetadata}
-                      onEnded={handleVideoEnded}
-                      onClick={togglePlayPause}
-                    />
-
-                    {/* Progress bar overlay on hover */}
-                    <div className="absolute bottom-[44px] left-0 right-0 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <input
-                        type="range"
-                        min={0}
-                        max={duration || 100}
-                        value={currentTime}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value);
-                          setCurrentTime(val);
-                          if (videoRef.current) videoRef.current.currentTime = val;
-                        }}
-                        className="w-full accent-brand-red h-1 rounded bg-gray-800 cursor-pointer"
-                      />
-                    </div>
-                  </>
+                  <video
+                    ref={videoRef}
+                    src={streamUrl}
+                    className="w-full h-full object-contain"
+                    autoPlay
+                    onTimeUpdate={handleTimeUpdate}
+                    onLoadedMetadata={handleLoadedMetadata}
+                    onEnded={handleVideoEnded}
+                    onClick={togglePlayPause}
+                  />
                 )}
               </div>
             )}
 
             {/* Custom Control Bar (Below / Overlaid at bottom on hover) */}
-            {isPlaying && !isLoadingToken && activeEpisode.id !== "s1e1" && (
-              <div className="h-11 w-full bg-black/90 border-t border-brand-border flex items-center justify-between px-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            {isPlaying && !isLoadingToken && (
+              <>
+                {/* Progress bar overlay on hover */}
+                <div className="absolute bottom-[44px] left-0 right-0 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+                  <input
+                    type="range"
+                    min={0}
+                    max={duration || 100}
+                    value={currentTime}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      setCurrentTime(val);
+                      if (activeEpisode.id === "s1e1" && ytPlayerInstance) {
+                        ytPlayerInstance.seekTo(val, true);
+                      } else if (videoRef.current) {
+                        videoRef.current.currentTime = val;
+                      }
+                    }}
+                    className="w-full accent-brand-red h-1 rounded bg-gray-800 cursor-pointer"
+                  />
+                </div>
+
+                <div className="h-11 w-full bg-black/90 border-t border-brand-border flex items-center justify-between px-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 {/* Left Side: Playback buttons */}
                 <div className="flex items-center gap-4">
                   {/* Seek -10s */}
@@ -435,7 +528,7 @@ export default function WatchPage() {
 
                   {/* Play/Pause */}
                   <button onClick={togglePlayPause} className="text-gray-400 hover:text-white transition-colors focus:outline-none cursor-pointer">
-                    {videoRef.current?.paused ? <Play className="w-4 h-4 fill-gray-400" /> : <Pause className="w-4 h-4 fill-gray-400" />}
+                    {!isPlaying ? <Play className="w-4 h-4 fill-gray-400" /> : <Pause className="w-4 h-4 fill-gray-400" />}
                   </button>
 
                   {/* Seek +10s */}
@@ -512,9 +605,11 @@ export default function WatchPage() {
                   </div>
 
                   {/* PiP */}
-                  <button onClick={togglePiP} className="text-gray-400 hover:text-white transition-colors focus:outline-none cursor-pointer" title="Picture in Picture">
-                    <span className="font-mono text-[10px] font-bold">⧉</span>
-                  </button>
+                  {activeEpisode.id !== "s1e1" && (
+                    <button onClick={togglePiP} className="text-gray-400 hover:text-white transition-colors focus:outline-none cursor-pointer" title="Picture in Picture">
+                      <span className="font-mono text-[10px] font-bold">⧉</span>
+                    </button>
+                  )}
 
                   {/* Fullscreen toggle */}
                   <button onClick={toggleFullscreen} className="text-gray-400 hover:text-white transition-colors focus:outline-none cursor-pointer">
@@ -522,7 +617,8 @@ export default function WatchPage() {
                   </button>
                 </div>
               </div>
-            )}
+            </>
+          )}
           </div>
 
           {/* Episode Metadata Section */}
