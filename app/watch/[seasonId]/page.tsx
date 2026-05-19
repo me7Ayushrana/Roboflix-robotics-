@@ -36,6 +36,7 @@ export default function WatchPage() {
   const [showSpeedDropdown, setShowSpeedDropdown] = useState<boolean>(false);
   const [showQualityDropdown, setShowQualityDropdown] = useState<boolean>(false);
   const [isLoadingToken, setIsLoadingToken] = useState<boolean>(false);
+  const [hasStartedPlaying, setHasStartedPlaying] = useState<boolean>(false);
   
   // Bunny Stream/fallback URL
   const [streamUrl, setStreamUrl] = useState<string>("");
@@ -43,7 +44,7 @@ export default function WatchPage() {
 
   // Load YouTube Player API and initialize
   useEffect(() => {
-    if (activeEpisode.id !== "s1e1") {
+    if (activeEpisode.id !== "s1e1" || !hasStartedPlaying) {
       setYtPlayerInstance(null);
       return;
     }
@@ -96,7 +97,7 @@ export default function WatchPage() {
         }, 100);
       }
     }
-  }, [activeEpisode]);
+  }, [activeEpisode, hasStartedPlaying]);
 
   // Sync YouTube player time and duration dynamically
   useEffect(() => {
@@ -134,6 +135,7 @@ export default function WatchPage() {
   // Request signed video stream token on play trigger
   const handlePlayStart = async () => {
     setIsPlaying(true);
+    setHasStartedPlaying(true);
 
     if (activeEpisode.id === "s1e1") {
       setIsLoadingToken(false);
@@ -419,6 +421,7 @@ export default function WatchPage() {
       const nextEp = activeSeason.episodes[currentIndex + 1];
       setActiveEpisode(nextEp);
       setIsPlaying(true);
+      setHasStartedPlaying(true);
     } else {
       // Load first episode of next season if available
       const nextSeasonIndex = SEASONS_DATA.findIndex((s) => s.id === activeSeason.id) + 1;
@@ -427,6 +430,7 @@ export default function WatchPage() {
         setActiveSeason(nextSeason);
         setActiveEpisode(nextSeason.episodes[0]);
         setIsPlaying(true);
+        setHasStartedPlaying(true);
         router.push(`/watch/${nextSeason.id}`, { scroll: false });
       }
     }
@@ -437,6 +441,7 @@ export default function WatchPage() {
     setActiveSeason(season);
     setActiveEpisode(season.episodes[0]);
     setIsPlaying(true);
+    setHasStartedPlaying(true);
     router.push(`/watch/${season.id}`, { scroll: false });
   };
 
@@ -444,6 +449,7 @@ export default function WatchPage() {
   const handleEpisodeItemClick = (episode: Episode) => {
     setActiveEpisode(episode);
     setIsPlaying(true);
+    setHasStartedPlaying(true);
   };
 
   const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -483,33 +489,8 @@ export default function WatchPage() {
             ref={playerContainerRef}
             className="relative w-full aspect-[16/9] bg-black border border-brand-border rounded-lg overflow-hidden group select-none flex flex-col justify-end"
           >
-            {!isPlaying ? (
-              // Pre-play Visual State
-              <div 
-                onClick={handlePlayStart}
-                className="absolute inset-0 w-full h-full flex flex-col items-center justify-center cursor-pointer bg-gradient-to-b from-[#111]/30 via-black/80 to-black hover:opacity-95 transition-all duration-300"
-              >
-                {/* Custom Red Border Play Button Circle */}
-                <div className="w-20 h-20 rounded-full border-4 border-brand-red flex items-center justify-center bg-black/60 shadow-[0_0_30px_rgba(229,9,20,0.4)] group-hover:scale-105 transition-transform duration-300">
-                  <Play className="w-8 h-8 fill-brand-red text-brand-red ml-1.5" />
-                </div>
-                <div className="flex flex-col gap-1 items-center mt-5 text-center px-4">
-                  <span className="font-bebas text-2xl tracking-wide text-white">
-                    PLAY EPISODE {activeEpisode.episodeNumber}
-                  </span>
-                  <span className="font-mono text-xs text-gray-400">
-                    {activeEpisode.title} ({activeEpisode.duration})
-                  </span>
-                </div>
-              </div>
-            ) : isLoadingToken ? (
-              // Loading State
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black gap-4">
-                <div className="w-12 h-12 rounded-full border-4 border-gray-700 border-t-brand-red animate-spin" />
-                <span className="font-mono text-xs text-gray-500">Securing HLS stream token...</span>
-              </div>
-            ) : (
-              // Active Playing Video State
+            {/* 1. Persistent Video Player Frame */}
+            {hasStartedPlaying && (
               <div className="absolute inset-0 w-full h-full bg-black flex flex-col justify-between">
                 {activeEpisode.id === "s1e1" ? (
                   <div className="relative w-full h-full overflow-hidden">
@@ -545,8 +526,37 @@ export default function WatchPage() {
               </div>
             )}
 
+            {/* 2. Loading State Overlay */}
+            {isLoadingToken && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black gap-4 z-20">
+                <div className="w-12 h-12 rounded-full border-4 border-gray-700 border-t-brand-red animate-spin" />
+                <span className="font-mono text-xs text-gray-500">Securing HLS stream token...</span>
+              </div>
+            )}
+
+            {/* 3. Pre-play Cover Overlay */}
+            {!hasStartedPlaying && (
+              <div 
+                onClick={handlePlayStart}
+                className="absolute inset-0 w-full h-full flex flex-col items-center justify-center cursor-pointer bg-gradient-to-b from-[#111]/30 via-black/80 to-black hover:opacity-95 transition-all duration-300 z-20 animate-fade-in"
+              >
+                {/* Custom Red Border Play Button Circle */}
+                <div className="w-20 h-20 rounded-full border-4 border-brand-red flex items-center justify-center bg-black/60 shadow-[0_0_30px_rgba(229,9,20,0.4)] group-hover:scale-105 transition-transform duration-300">
+                  <Play className="w-8 h-8 fill-brand-red text-brand-red ml-1.5" />
+                </div>
+                <div className="flex flex-col gap-1 items-center mt-5 text-center px-4">
+                  <span className="font-bebas text-2xl tracking-wide text-white">
+                    PLAY EPISODE {activeEpisode.episodeNumber}
+                  </span>
+                  <span className="font-mono text-xs text-gray-400">
+                    {activeEpisode.title} ({activeEpisode.duration})
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Custom Control Bar (Below / Overlaid at bottom on hover) */}
-            {isPlaying && !isLoadingToken && (
+            {hasStartedPlaying && !isLoadingToken && (
               <>
                 {/* Progress bar overlay on hover */}
                 <div className="absolute bottom-[44px] left-0 right-0 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-30">
