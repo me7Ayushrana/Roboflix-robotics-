@@ -840,10 +840,17 @@ export default function WatchPage() {
                     onMouseDown={() => setIsScrubbing(true)}
                     onTouchStart={() => setIsScrubbing(true)}
                     onChange={(e) => {
-                      setCurrentTime(parseFloat(e.target.value));
+                      const val = parseFloat(e.target.value);
+                      setCurrentTime(val);
+                      if (isYoutubeEpisode && ytPlayerInstance) {
+                        if (ytPlayerInstance.seekTo) {
+                          ytPlayerInstance.seekTo(val, true);
+                        }
+                      } else if (videoRef.current) {
+                        videoRef.current.currentTime = val;
+                      }
                     }}
                     onMouseUp={(e) => {
-                      setIsScrubbing(false);
                       const val = parseFloat((e.target as HTMLInputElement).value);
                       if (isYoutubeEpisode && ytPlayerInstance) {
                         ytPlayerInstance.seekTo(val, true);
@@ -851,9 +858,11 @@ export default function WatchPage() {
                       } else if (videoRef.current) {
                         videoRef.current.currentTime = val;
                       }
+                      setTimeout(() => {
+                        setIsScrubbing(false);
+                      }, 150);
                     }}
                     onTouchEnd={(e) => {
-                      setIsScrubbing(false);
                       const val = parseFloat((e.target as HTMLInputElement).value);
                       if (isYoutubeEpisode && ytPlayerInstance) {
                         ytPlayerInstance.seekTo(val, true);
@@ -861,6 +870,9 @@ export default function WatchPage() {
                       } else if (videoRef.current) {
                         videoRef.current.currentTime = val;
                       }
+                      setTimeout(() => {
+                        setIsScrubbing(false);
+                      }, 150);
                     }}
                     style={{
                       background: `linear-gradient(to right, #E50914 0%, #E50914 ${
