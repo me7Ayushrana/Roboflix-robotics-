@@ -34,6 +34,7 @@ export default function WatchPage() {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
+  const [isScrubbing, setIsScrubbing] = useState<boolean>(false);
   const [isPiPActive, setIsPiPActive] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showSpeedDropdown, setShowSpeedDropdown] = useState<boolean>(false);
@@ -104,10 +105,10 @@ export default function WatchPage() {
 
   // Sync YouTube player time and duration dynamically
   useEffect(() => {
-    if (!isYoutubeEpisode || !ytPlayerInstance || !isPlaying) return;
+    if (!isYoutubeEpisode || !ytPlayerInstance || !isPlaying || isScrubbing) return;
 
     const interval = setInterval(() => {
-      if (ytPlayerInstance) {
+      if (ytPlayerInstance && !isScrubbing) {
         if (ytPlayerInstance.getCurrentTime) {
           setCurrentTime(ytPlayerInstance.getCurrentTime());
         }
@@ -121,7 +122,7 @@ export default function WatchPage() {
     }, 500);
 
     return () => clearInterval(interval);
-  }, [ytPlayerInstance, isPlaying, activeEpisode]);
+  }, [ytPlayerInstance, isPlaying, activeEpisode, isScrubbing]);
 
   // Refs for custom video tag and container
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -353,7 +354,7 @@ export default function WatchPage() {
 
   // Video Time/Duration Updates
   const handleTimeUpdate = () => {
-    if (videoRef.current) {
+    if (videoRef.current && !isScrubbing) {
       setCurrentTime(videoRef.current.currentTime);
     }
   };
@@ -572,16 +573,37 @@ export default function WatchPage() {
                     min={0}
                     max={duration || 100}
                     value={currentTime}
+                    onMouseDown={() => setIsScrubbing(true)}
+                    onTouchStart={() => setIsScrubbing(true)}
                     onChange={(e) => {
-                      const val = parseFloat(e.target.value);
-                      setCurrentTime(val);
+                      setCurrentTime(parseFloat(e.target.value));
+                    }}
+                    onMouseUp={(e) => {
+                      setIsScrubbing(false);
+                      const val = parseFloat((e.target as HTMLInputElement).value);
                       if (isYoutubeEpisode && ytPlayerInstance) {
                         ytPlayerInstance.seekTo(val, true);
                       } else if (videoRef.current) {
                         videoRef.current.currentTime = val;
                       }
                     }}
-                    className="w-full accent-brand-red h-1 rounded bg-gray-800 cursor-pointer"
+                    onTouchEnd={(e) => {
+                      setIsScrubbing(false);
+                      const val = parseFloat((e.target as HTMLInputElement).value);
+                      if (isYoutubeEpisode && ytPlayerInstance) {
+                        ytPlayerInstance.seekTo(val, true);
+                      } else if (videoRef.current) {
+                        videoRef.current.currentTime = val;
+                      }
+                    }}
+                    style={{
+                      background: `linear-gradient(to right, #E50914 0%, #E50914 ${
+                        duration > 0 ? (currentTime / duration) * 100 : 0
+                      }%, #4b5563 ${
+                        duration > 0 ? (currentTime / duration) * 100 : 0
+                      }%, #4b5563 100%)`
+                    }}
+                    className="w-full accent-brand-red h-1.5 rounded cursor-pointer outline-none transition-all duration-150"
                   />
                 </div>
 
