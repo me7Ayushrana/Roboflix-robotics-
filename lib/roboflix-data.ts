@@ -86,7 +86,7 @@ export const SEASONS_DATA: Season[] = [
         title: "Making It Move",
         duration: "28 min",
         durationMin: 28,
-        isFree: false,
+        isFree: true,
         thumbnailEmoji: "⚙️",
         description: "DC motors, servo motors, and motor drivers. Understand how PWM control works, how H-bridges work, and write logic to rotate actuators to precise angular coordinates.",
         publishDate: "Oct 2025",

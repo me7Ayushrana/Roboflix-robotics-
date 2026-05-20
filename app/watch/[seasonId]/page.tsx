@@ -26,7 +26,7 @@ export default function WatchPage() {
   const [activeSeason, setActiveSeason] = useState<Season>(initialSeason);
   const [activeEpisode, setActiveEpisode] = useState<Episode>(initialSeason.episodes[0]);
 
-  const isYoutubeEpisode = activeEpisode.id === "s1e1" || activeEpisode.id === "s1e2";
+  const isYoutubeEpisode = activeEpisode.id === "s1e1" || activeEpisode.id === "s1e2" || activeEpisode.id === "s1e3";
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
@@ -804,7 +804,9 @@ export default function WatchPage() {
                         src={
                           activeEpisode.id === "s1e1"
                             ? "https://www.youtube-nocookie.com/embed/RuDsBrSczis?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
-                            : "https://www.youtube-nocookie.com/embed/t3U3x_kUIbc?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
+                            : activeEpisode.id === "s1e2"
+                            ? "https://www.youtube-nocookie.com/embed/t3U3x_kUIbc?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
+                            : "https://www.youtube-nocookie.com/embed/SZisWzyBdHI?enablejsapi=1&autoplay=1&modestbranding=1&rel=0&controls=0&showinfo=0&iv_load_policy=3&disablekb=1&fs=0"
                         }
                         title={activeEpisode.title}
                         className="w-full h-full border-0"
