@@ -800,6 +800,7 @@ export default function WatchPage() {
                     {/* The cropped iframe shifted to crop YouTube title and controls */}
                     <div className="absolute inset-0 w-full h-[calc(100%+120px)] -top-[60px] pointer-events-none">
                       <iframe
+                        key={activeEpisode.id}
                         id="youtube-iframe"
                         src={
                           activeEpisode.id === "s1e1"
